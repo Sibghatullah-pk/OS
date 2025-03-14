@@ -1,0 +1,314 @@
+Bhai, theek hai! Chalo ab pipes ke topic se hata kar aaj ke saare kaam ko summary aur explanation ke roop mein complete karte hain, bina code ko dubara likhe. Hum ne 4 tasks kiye, aur main har task ke major points aur minor details ko teri zaban mein samjhaunga taake tu sab yaad rakh sake. Teri knowledge (fork, pipes, basic C++) ke hisaab se rakhunga, aur sab chhoti-chhoti baatein bhi cover karunga. Chalo shuru karte hain!
+
+---
+
+### Overview of Today’s Work
+Aaj hum ne 4 tasks kiye:
+1. **Task 1**: Producer-Consumer Problem with Pipes (Blocking vs Non-Blocking)
+2. **Task 2**: Merge Sort with Multiple Processes (but simplified later)
+3. **Task 3**: Simplified Array Splitting with Pipes (No Sorting)
+4. **Task 4**: Chat Application Between Two Processes Using Pipes
+
+Ab har task ke bare mein detail mein baat karte hain.
+
+---
+
+### Task 1: Producer-Consumer Problem with Pipes
+
+#### Kya Tha Yeh Task?
+- Ek producer (P) aur consumer (C) the jo ek finite-sized buffer (pipe) ke through baat karte the.
+- Challenge yeh tha ke P ko tab items produce nahi karne chahiye jab buffer full ho, aur C ko tab consume nahi karna chahiye jab buffer empty ho.
+- Question tha: Kya yeh problem pipes ke saath ho sakti hai? Code se jawab dena tha.
+
+#### Major Points
+- **Pipes ka Kaam**:
+  - Pipe default mein **blocking** hota hai:
+    - Agar pipe full hai, to `write()` ruk jata hai jab tak Consumer kuch padh na le.
+    - Agar pipe empty hai, to `read()` ruk jata hai jab tak Producer kuch na likhe.
+    - Isse koi issue nahi hota—system khud sambhal leta hai.
+  - **Non-Blocking Pipes**:
+    - Agar pipe ko non-blocking banaya jaye (`fcntl` se), to issue ho sakti hai:
+      - Pipe full hone par `write()` fail ho jata hai (`EAGAIN` error).
+      - Pipe empty hone par `read()` fail ho jata hai (`EAGAIN` error).
+- **Do Tarike ke Codes**:
+  - Ek code blocking pipes ke saath tha, jahan Producer har 1 second mein item bhejta tha, Consumer har 3 seconds mein padhta tha, aur pipe ke blocking se koi dikkat nahi hoti thi.
+  - Dusra code non-blocking pipes ke saath tha, jahan issue ko dikhaya gaya (pipe full ya empty hone par error messages).
+
+#### Chhoti-Chhoti Baatein
+- **Shuru ka Code**:
+  - Ek simple integer stream (1 to 10) use kiya gaya tha, koi fixed array nahi.
+  - Producer bolta tha "P sending: <number>" jaise "P sending: 1".
+  - Consumer bolta tha "C got: <number>" jaise "C got: 1".
+  - `sleep` use kiya: Producer 1 second, Consumer 2 seconds (baad mein 3 seconds kiya gaya).
+- **Blocking Code**:
+  - Yeh pipe ke natural behavior ko dikhata tha.
+  - Output mein Producer aur Consumer ek saath chalte the, lekin blocking ki wajah se data safe rahta tha.
+- **Non-Blocking Code**:
+  - `fcntl(pipefd[0], F_SETFL, O_NONBLOCK)` aur `fcntl(pipefd[1], F_SETFL, O_NONBLOCK)` se pipe non-blocking banaaya gaya.
+  - Output mein "Pipe full, P can’t write" ya "Pipe empty, C can’t read" aata tha jab pipe full ya empty hota.
+- **Variable Names**:
+  - Pehle `tube` use kiya, phir `pipe` kiya, aur akhir mein `pipefd` kiya.
+  - Tu ne kaha "no comments" to comments hata diye.
+- **Teri Feedback**:
+  - Tu ne poocha ke `fcntl` kya hai, kyunki yeh teri samajh mein nahi tha.
+  - Maine kaha ke blocking pipes hi kaafi hain, aur `sleep` se manual delay se behavior mimic kiya gaya.
+
+#### Kaise Badla Code
+- Shuru mein 2 alag codes the (blocking aur non-blocking).
+- Ek combined code diya gaya `bool blocking` ke saath, lekin tu ne `fcntl` nahi samajha to usay hata diya.
+- Final mein sirf blocking pipe wala code reh gaya, jahan Producer har 1 second bhejta tha, Consumer har 3 seconds padhta tha, aur pipe wait karke problem rokta tha.
+
+#### Ek Chhoti Baat Yaad Karne Ke Liye
+- Yeh line teri zaban mein: "Producer har 1 second mein cheezein bhejta hai, aur Consumer har 3 second mein unhe padhta hai, lekin pipe ka blocking system problem nahi hone deta—jab tak space ya data nahi milta, woh wait karta hai."
+
+---
+
+### Task 2: Merge Sort with Multiple Processes
+
+#### Kya Tha Yeh Task?
+- Merge sort implement karna tha multiple processes aur pipes ke saath.
+- Parent 3 child processes banata, har child array ka 1/3rd part sort karta, aur sorted subarray pipe se parent ko bhejta.
+- Parent un sorted subarrays ko merge karke final sorted array print karta.
+
+#### Major Points
+- **Shuru ka Plan**:
+  - Array ko 3 parts mein baanta, jaise size 9 ke liye `{64, 34, 25, 12, 22, 11, 90, 5, 8}`.
+  - 3 child processes (`p_id1`, `p_id2`, `p_id3`) banaye.
+  - Har child apna hissa merge sort karta tha aur pipe (`pipefd1`, `pipefd2`, `pipefd3`) se bhejta tha.
+  - Parent 3 sorted subarrays (`part1`, `part2`, `part3`) ko `merge_three` se mila ke print karta tha.
+- **Merge Sort**:
+  - `merge_sort` aur `merge` functions recursive sort karte the.
+  - `merge_three` function 3 sorted parts ko ek karta tha.
+- **Output**:
+  - Final sorted array: `{5, 8, 11, 12, 22, 25, 34, 64, 90}`.
+
+#### Chhoti-Chhoti Baatein
+- **Array Division**:
+  - Size 9 ke liye: `s1 = 3`, `s2 = 3`, `s3 = 3`, remainder handle kiya.
+- **Child Process**:
+  - Har child apna subarray (`subarr1`, etc.) banata, sort karta, aur pipe se bhejta tha.
+  - `write` commands jaise `write(pipefd1[1], subarr1, s1 * sizeof(int))` use kiye.
+- **Parent Process**:
+  - `read` se subarrays collect karta tha aur `merge_three` se combine karta tha.
+- **Code ka Size**:
+  - Yeh thoda bhaari tha kyunki merge sort aur merging logic tha.
+
+#### Teri Feedback
+- Tu ne kaha ke itna bhaari code nahi chahiye, question mein sirf yeh tha ke child apna hissa pipe se bhej de, parent print kare—sorting ya merging ki zarurat nahi.
+- Isliye Task 3 mein code ko simplify kiya gaya.
+
+---
+
+### Task 3: Simplified Array Splitting with Pipes
+
+#### Kya Tha Yeh Task?
+- Tu ne kaha ke Task 2 ko simplify karo:
+  - 3 child processes apna hissa pipe se parent ko bhejte hain.
+  - Parent parts print kare, sorted ya unsorted, koi farak nahi.
+
+#### Major Points
+- **Shuru ka Code**:
+  - Array `{64, 34, 25, 12, 22, 11, 90, 5, 8}` ko 3 parts mein baanta:
+    - Part 1: `{64, 34, 25}`
+    - Part 2: `{12, 22, 11}`
+    - Part 3: `{90, 5, 8}`
+  - 3 child processes banaye.
+  - Har child apna hissa pipe se bhejta tha, bina sorting ke.
+  - Parent har part ko receive karke print karta tha.
+- **Aur Simplify**:
+  - Tu ne kaha ke aur simple karo:
+    - Array size chhota kiya `{10, 5, 8, 3}` (4 elements).
+    - 2 child processes (`p_id1`, `p_id2`) banaye.
+    - Part 1: `{10, 5}`, Part 2: `{8, 3}`.
+  - Parent ne original array bhi print kiya (teri request pe).
+- **Immediate Printing**:
+  - Tu ne kaha ke parent har part receive karte hi print kare, to `read` ke baad turant `cout` kiya gaya.
+
+#### Chhoti-Chhoti Baatein
+- **Shuru ka Code (3 Children)**:
+  - Size 9, 3 parts, `part_size = 3`.
+  - `s1`, `s2`, `s3` calculate kiye remainder ke saath.
+  - Output:
+    ```
+    Part 1: 64 34 25
+    Part 2: 12 22 11
+    Part 3: 90 5 8
+    ```
+- **Simplified Code (2 Children)**:
+  - Size 4, 2 parts, `part_size = 2`.
+  - Koi size calculations nahi—direct split.
+  - Output:
+    ```
+    Original array: 10 5 8 3
+    Part 1: 10 5
+    Part 2: 8 3
+    ```
+- **Data Sending**:
+  - `write(pipefd1[1], arr, 2 * sizeof(int))` se pehle 2 elements bheje.
+  - Tu ne poocha ke `2 * sizeof(int)` kya hai:
+    - Maine `part_size = 2` define karke `part_size * sizeof(int)` use kiya, taake clear ho ke 2 elements bhej rahe hain.
+- **Immediate Printing**:
+  - Pehle parent saare parts collect karke print karta tha, baad mein `read` ke turant baad print karne laga.
+
+#### Ek Chhoti Baat
+- Tu ne `2 * sizeof(int)` ke bare mein poocha, maine `part_size * sizeof(int)` se clear kiya taake data ka flow samajh aye.
+
+---
+
+### Task 4: Chat Application Between Two Processes Using Pipes
+
+#### Kya Tha Yeh Task?
+- Ek chat application banani thi 2 processes (parent aur child) ke beech pipes use karke.
+- Dono processes pipes se read aur write karenge.
+- Jab tak koi "bye" nahi likhega, communication chalti rahegi.
+
+#### Major Points
+- **Do Pipes**:
+  - `pipefd1`: Parent se child ke liye (parent writes, child reads).
+  - `pipefd2`: Child se parent ke liye (child writes, parent reads).
+- **Chat Loop**:
+  - Parent: Input leta hai (`cin`), `pipefd1[1]` mein likhta hai, `pipefd2[0]` se padhta hai.
+  - Child: `pipefd1[0]` se padhta hai, input leta hai, `pipefd2[1]` mein likhta hai.
+- **Rokna**:
+  - Agar koi "bye" bhejta hai, dono processes ruk jate hain aur exit karte hain.
+- **Output**:
+  - Jaise:
+    ```
+    Parent: Hi
+    Child got: Hi
+    Child: Hello
+    Parent got: Hello
+    Parent: bye
+    Child got: bye
+    ```
+
+#### Chhoti-Chhoti Baatein
+- **Message Buffer**:
+  - `char msg[100]`: 100 characters ka buffer messages ke liye.
+- **String Handling**:
+  - `write` mein `strlen(msg) + 1` use kiya taake null terminator (`\0`) bhi bheje.
+  - `read` ke baad `msg[bytes] = '\0'` add kiya taake string valid ho.
+- **Check**:
+  - `strcmp(msg, "bye")` se dekha jata hai ke "bye" aaya hai ya nahi.
+- **Pipe Management**:
+  - Parent ne `pipefd1[0]` aur `pipefd2[1]` close kiye (unused ends).
+  - Child ne `pipefd1[1]` aur `pipefd2[0]` close kiye.
+- **Flow**:
+  - Parent pehle bolta hai, child padhta hai aur jawab deta hai, loop chalta hai jab tak "bye" na aaye.
+
+#### Ek Chhoti Baat
+- Yeh chat ek taraf se ek taraf baat karti hai, matlab ek baar mein ek message—agar do shabd bhejna ho to thoda adjust karna parega.
+
+---
+
+### Overall Observations and Your Input
+
+#### Teri Feedback aur Changes
+- **Variable Names**:
+  - Task 1 mein `tube` se `pipefd` tak gaya.
+  - Task 3 mein `2 * sizeof(int)` ko `part_size * sizeof(int)` se clear kiya.
+- **Simplification**:
+  - Task 2 se Task 3 mein sorting aur merging hataaya.
+  - Task 3 mein 3 children se 2 children, size 9 se 4 kiya.
+- **Immediate Printing**:
+  - Task 3 mein parent ko parts receive karte hi print karne ke liye bola.
+- **Language**:
+  - Ek baar tu ne kaha Task 1 ki line teri zaban mein likhoon, maine "Producer har 1 second mein cheezein bhejta hai..." wala version diya.
+- **Code Size**:
+  - Tu ne bar-bar kaha ke code chhota aur simple rakho, to maine har step mein minimize kiya.
+
+#### Sabse Badi Baat Yaad Rakhne Ki
+- Pipes default mein blocking hote hain, jo synchronization ka kaam khud kar dete hain.
+- `fork()` se processes banayi gayi, aur pipes se data transfer hua.
+- Har task mein teri feedback se code adjust kiya gaya—tu ne mujhe guide kiya!
+
+---
+
+### Yaad Rakhne Ke Liye Tips
+- **Task 1**: Blocking vs non-blocking pipes ka farak yaad rakh, aur `sleep` ka use kaise timing control karta hai.
+- **Task 2**: Merge sort ka idea tha, lekin tu ne simplify karwaya—focus array splitting par raha.
+- **Task 3**: Simple array splitting aur immediate printing—`part_size` ka use samajhna zaroori hai.
+- **Task 4**: Chat ka flow—do pipes, "bye" pe rukna—ek basic communication model.
+
+Agar koi aur point ya detail chahiye, ya kisi task ko aur explain karna hai, bol do, bhai! Yeh sab yaad rakhne ke liye kaafi hai!
+
+
+Summary of All Tasks Done Today
+Ab aaj ke saare 5 tasks ko summarize karte hain—major points aur minor details ke saath, taake sab yaad rahe.
+
+Task 1: Producer-Consumer Problem with Pipes
+Kya Tha: Producer (P) aur Consumer (C) ek pipe se baat karte hain. P ko tab nahi bhejna chahiye jab pipe full ho, C ko tab nahi padhna jab pipe empty ho. Kya yeh issue pipes ke saath ho sakta hai?
+Major Points:
+Blocking pipes mein issue nahi hota—pipe wait karta hai.
+Non-blocking pipes mein issue hota hai (fcntl se banaya, lekin tu ne kaha yeh samajh nahi aaya).
+Final code mein sirf blocking pipe use kiya: Producer har 1 second mein bhejta, Consumer har 3 seconds mein padhta.
+Minor Details:
+Variable names: tube se pipefd tak badla.
+Output: "P sending: 1", "C got: 1" jaise messages.
+Tu ne fcntl ke bare mein poocha, maine blocking pipe hi use kiya akhir mein.
+Ek line teri zaban mein: "Producer har 1 second mein cheezein bhejta hai, aur Consumer har 3 second mein unhe padhta hai, lekin pipe ka blocking system problem nahi hone deta—jab tak space ya data nahi milta, woh wait karta hai."
+Task 2: Merge Sort with Multiple Processes
+Kya Tha: Merge sort karna tha—3 child processes array ka 1/3rd part sort karen, pipe se parent ko bhejen, parent merge karke print kare.
+Major Points:
+Array {64, 34, 25, 12, 22, 11, 90, 5, 8} ko 3 parts mein baanta.
+Har child ne merge sort kiya aur pipe se bheja.
+Parent ne merge karke final sorted array print kiya: {5, 8, 11, 12, 22, 25, 34, 64, 90}.
+Minor Details:
+merge_sort, merge, aur merge_three functions banaye.
+Array division: s1, s2, s3 calculate kiye.
+Tu ne kaha ke yeh bhaari hai, sorting nahi chahiye.
+Task 3: Simplified Array Splitting with Pipes
+Kya Tha: Task 2 ko simplify kiya—child processes apna hissa pipe se bhejen, parent print kare, sorting nahi.
+Major Points:
+Pehle 3 children the, array size 9.
+Baad mein 2 children, array size 4: {10, 5, 8, 3}.
+Part 1: {10, 5}, Part 2: {8, 3}—unsorted hi bheja gaya.
+Parent ne original array aur parts print kiye.
+Tu ne kaha ke receive karte hi print kare, to read ke baad turant print kiya.
+Minor Details:
+2 * sizeof(int) ko part_size * sizeof(int) se clear kiya.
+Output:
+text
+
+Collapse
+
+Wrap
+
+Copy
+Original array: 10 5 8 3
+Part 1: 10 5
+Part 2: 8 3
+Task 4: Chat Application Between Two Processes
+Kya Tha: Parent aur child ke beech chat app banani thi—pipes se baat karen, "bye" pe ruk jaye.
+Major Points:
+Do pipes: Ek parent se child, ek child se parent.
+Loop mein chat: Parent bolta, child jawab deta, aur ulta.
+"bye" pe dono ruk jate.
+Minor Details:
+char msg[100] buffer use kiya.
+strcmp se "bye" check kiya.
+Output: "Parent: Hi", "Child got: Hi", etc.
+Task 5: Monitor Child Processes with Pipes (Current Task)
+Kya Tha: Multiple child processes banaye, unke start aur end times pipe se collect kiye, aur most CPU-bound process find kiya.
+Major Points:
+3 child processes banaye.
+Har child ne start aur end time pipe se bheja.
+Parent ne yeh collect karke print kiya, aur sabse zyada duration wala (CPU-bound) process bataya.
+Minor Details:
+time(nullptr) se time liya.
+Simulated work loop se CPU usage alag banaya.
+Output mein start time, end time, duration, aur CPU-bound process print hua.
+Overall Observations
+Pipes ka Use: Har task mein pipes communication ke liye use hue—blocking nature ne synchronization mein madad ki.
+Fork: Har jagah fork() se processes banaye.
+Teri Feedback: Tu ne bar-bar simplicity pe focus kiya—bhaari code se chhote code tak gaye.
+Learning Points:
+Blocking pipes issues rok dete hain.
+part_size * sizeof(int) se data transfer clear hota hai.
+Real-time printing aur simple communication patterns samajh aaye.
+
+
+
+
+
+
