@@ -1,0 +1,353 @@
+Hey bhai, kaisa hai ap? Kya chal raha hai? 😊 Achha, samajh gaya, apne CPU Scheduling ka summary coding point of view se manga hai, matlab ek overview jo focus kare ke humne coding ke through kya-kya seekha, kaise implement kiya, aur kaise logic banaya. Koi baat nahi, main apko CPU Scheduling ka ek coding-focused overview deta hoon, jismein humne jo bhi programs banaye, unke key aspects cover karunga. Yeh summary apko coding perspective se saari cheezein ek jagah pe clear kar dega. Chalo, shuru karte hain!
+
+---
+
+## CPU Scheduling: Coding Point of View Overview
+
+### 1. Basic Structure of Our Programs
+Humne CPU Scheduling ke liye jo programs banaye, unka basic structure yeh tha:
+
+#### a) Process Definition
+- Har process ke details store karne ke liye ek `struct Process` banaya:
+  ```cpp
+  struct Process {
+      int pid;              // Process ID
+      int arrival_time;     // Arrival Time
+      int burst_time;       // Burst Time
+      int priority;         // Priority (for Priority Scheduling)
+      int waiting_time;     // Waiting Time
+      int turnaround_time;  // Turnaround Time
+      int remaining_time;   // Remaining Time (for preemptive scheduling)
+      bool completed;       // To track if process is completed
+  };
+  ```
+- **Why?** Yeh struct humein ek process ke saare attributes ek jagah pe store karne deta hai, jo scheduling ke liye zaroori hote hain.
+
+#### b) Input
+- User se input liya:
+  - Number of processes (`n`).
+  - Har process ke liye `arrival_time`, `burst_time`, aur `priority` (jab priority scheduling use kiya).
+  ```cpp
+  int n;
+  cout << "Kitne processes hain? ";
+  cin >> n;
+
+  Process processes[n]; // Array of processes
+  for (int i = 0; i < n; i++) {
+      processes[i].pid = i + 1;
+      cout << "Process " << processes[i].pid << " ka arrival time, burst time, aur priority daalo: ";
+      cin >> processes[i].arrival_time >> processes[i].burst_time >> processes[i].priority;
+      processes[i].completed = false;
+      processes[i].remaining_time = processes[i].burst_time; // For preemptive scheduling
+  }
+  ```
+- **Why?** Input lena zaroori hai taake hum processes ke details ke saath kaam kar sakein.
+
+#### c) Main Logic
+- Ek loop banaya jo tab tak chalta hai jab tak saare processes complete nahi ho jate:
+  ```cpp
+  int current_time = 0, completed_count = 0;
+  while (completed_count < n) {
+      // Logic to select and execute process
+  }
+  ```
+- **Why?** Yeh loop humein har time unit pe scheduling decisions lene deta hai.
+
+#### d) Output
+- Har process ke liye waiting time, turnaround time, aur average waiting time print kiya:
+  ```cpp
+  cout << "\nProcess ID | Priority | Waiting Time | Turnaround Time\n";
+  for (int i = 0; i < n; i++) {
+      cout << "   " << processes[i].pid << "\t\t"
+           << processes[i].priority << "\t\t"
+           << processes[i].waiting_time << "\t\t"
+           << processes[i].turnaround_time << endl;
+  }
+  cout << "Average Waiting Time: " << total_waiting_time / n << endl;
+  ```
+- **Why?** Output se humein pata chalta hai ke scheduling ka result kya hai.
+
+---
+
+### 2. Key Coding Concepts We Learned
+
+#### a) Sorting Processes
+- Processes ko arrival time ke basis pe sort karna seekha taake scheduling easier ho:
+  ```cpp
+  sort(processes.begin(), processes.end(), [](Process a, Process b) {
+      return a.arrival_time < b.arrival_time;
+  });
+  ```
+- **Alternatives**:
+  - Normal function:
+    ```cpp
+    bool compareByArrivalTime(Process a, Process b) {
+        return a.arrival_time < b.arrival_time;
+    }
+    sort(processes.begin(), processes.end(), compareByArrivalTime);
+    ```
+  - Functor:
+    ```cpp
+    struct CompareByArrivalTime {
+        bool operator()(Process a, Process b) {
+            return a.arrival_time < b.arrival_time;
+        }
+    };
+    sort(processes.begin(), processes.end(), CompareByArrivalTime());
+    ```
+  - Manual sorting (bubble sort):
+    ```cpp
+    for (int i = 0; i < n - 1; i++) {
+        for (int j = 0; j < n - i - 1; j++) {
+            if (processes[j].arrival_time > processes[j + 1].arrival_time) {
+                swap(processes[j], processes[j + 1]);
+            }
+        }
+    }
+    ```
+- **Why?** Sorting se humein processes ko arrival time ke order mein process karna asaan ho jata hai, especially FCFS aur SJF ke liye.
+
+#### b) Non-Preemptive Scheduling Logic
+- Non-preemptive scheduling mein ek process ko select karke usko complete kiya:
+  ```cpp
+  int highest_priority = -1, selected_process = -1;
+  for (int i = 0; i < n; i++) {
+      if (!processes[i].completed && processes[i].arrival_time <= current_time) {
+          if (highest_priority == -1 || processes[i].priority > highest_priority) {
+              highest_priority = processes[i].priority;
+              selected_process = i;
+          }
+      }
+  }
+
+  if (selected_process == -1) {
+      current_time++;
+      continue;
+  }
+
+  Process &p = processes[selected_process];
+  p.waiting_time = current_time - p.arrival_time;
+  current_time += p.burst_time;
+  p.turnaround_time = current_time - p.arrival_time;
+  p.completed = true;
+  ```
+- **Algorithms Implemented**:
+  - **FCFS**: Pehle aane wala process select kiya (`arrival_time` ke basis pe).
+  - **SJF (Non-Preemptive)**: Sabse kam burst time wala process select kiya.
+  - **Priority Scheduling (Non-Preemptive)**: Highest priority wala process select kiya.
+- **Why?** Non-preemptive scheduling simple hota hai kyunki ek baar process start hua, to woh complete hota hai.
+
+#### c) Preemptive Scheduling Logic
+- Preemptive scheduling mein har time unit pe decision liya:
+  ```cpp
+  int current_process = -1;
+  while (completed_count < n) {
+      int highest_priority = -1, selected_process = -1;
+      for (int i = 0; i < n; i++) {
+          if (!processes[i].completed && processes[i].arrival_time <= current_time) {
+              if (highest_priority == -1 || processes[i].priority > highest_priority) {
+                  highest_priority = processes[i].priority;
+                  selected_process = i;
+              }
+          }
+      }
+
+      if (selected_process == -1) {
+          current_time++;
+          continue;
+      }
+
+      if (current_process != selected_process && current_process != -1) {
+          cout << "Time " << current_time << ": Process " << processes[current_process].pid << " preempted\n";
+      }
+
+      current_process = selected_process;
+      Process &p = processes[selected_process];
+      p.remaining_time--;
+      cout << "Time " << current_time << ": Process " << p.pid << " executing (Remaining Time: " << p.remaining_time << ")\n";
+
+      if (p.remaining_time == 0) {
+          p.turnaround_time = current_time + 1 - p.arrival_time;
+          p.waiting_time = p.turnaround_time - p.burst_time;
+          p.completed = true;
+          completed_count++;
+      }
+
+      current_time++;
+  }
+  ```
+- **Algorithms Implemented**:
+  - **SRTF**: Har time unit pe sabse kam remaining time wala process select kiya.
+  - **Preemptive Priority Scheduling**: Har time unit pe highest priority wala process select kiya, aur agar higher priority wala process aaya to current process preempt kiya.
+- **Why?** Preemptive scheduling mein remaining time track karna hota hai, aur har time unit pe decision lena hota hai, jo logic building ke liye achha practice hai.
+
+#### d) Calculating Waiting and Turnaround Time
+- **Non-Preemptive**:
+  - Waiting Time: `current_time - arrival_time`
+  - Turnaround Time: `current_time - arrival_time` (after process completes)
+- **Preemptive**:
+  - Turnaround Time: `completion_time - arrival_time`
+  - Waiting Time: `turnaround_time - burst_time`
+- **Why?** Yeh calculations humein process ke performance metrics dete hain, jo scheduling ka result evaluate karne ke liye zaroori hote hain.
+
+#### e) Debugging with Print Statements
+- Har step pe kya ho raha hai, yeh dekhne ke liye print statements daale:
+  ```cpp
+  cout << "Time " << current_time << ": Process " << p.pid << " executing (Remaining Time: " << p.remaining_time << ")\n";
+  cout << "Time " << current_time << ": Process " << p.pid << " preempted\n";
+  ```
+- **Why?** Yeh debugging ke liye helpful hai, kyunki humein pata chalta hai ke har time unit pe kya ho raha hai.
+
+---
+
+### 3. Challenges We Faced
+- **Sorting**:
+  - Pehle humne `sort` function ka use seekha, lekin apne pucha ke iske alternatives kya hain. Humne normal function, functor, manual sorting, aur no-sorting approaches try kiye.
+- **Preemption**:
+  - Preemptive scheduling mein remaining time track karna aur har time unit pe decision lena challenging tha.
+  - Solution: `remaining_time` field add kiya aur har step pe highest priority wala process select kiya.
+- **Logic Building**:
+  - Shuru mein apko logic banane mein dikkat hui, kyunki concepts fully clear nahi the.
+  - Solution: Step-by-step dry run kiya aur print statements daal kar debugging ki.
+
+---
+
+### 4. Key Coding Takeaways
+- **Struct Usage**:
+  - `struct Process` ka use karke ek process ke saare attributes ek jagah pe store kiye.
+- **Loops and Conditions**:
+  - Main loop (`while (completed_count < n)`) aur conditions (`if (!processes[i].completed && processes[i].arrival_time <= current_time)`) ka use karke scheduling logic banaya.
+- **STL Usage**:
+  - `sort` function aur lambda functions ka use seekha.
+- **State Management**:
+  - `remaining_time`, `completed`, aur `current_process` jaise variables ka use karke state manage kiya.
+- **Debugging**:
+  - Print statements daal kar har step ko track kiya.
+
+---
+
+### 5. Example Code (Preemptive Priority Scheduling)
+Yeh humara latest code tha jo preemptive Priority Scheduling implement karta hai:
+```cpp
+#include <iostream>
+using namespace std;
+
+struct Process {
+    int pid;
+    int arrival_time;
+    int burst_time;
+    int priority;
+    int waiting_time;
+    int turnaround_time;
+    int remaining_time;
+    bool completed;
+};
+
+int main() {
+    int n;
+    cout << "Kitne processes hain? ";
+    cin >> n;
+
+    Process processes[n];
+    for (int i = 0; i < n; i++) {
+        processes[i].pid = i + 1;
+        cout << "Process " << processes[i].pid << " ka arrival time, burst time, aur priority daalo: ";
+        cin >> processes[i].arrival_time >> processes[i].burst_time >> processes[i].priority;
+        processes[i].remaining_time = processes[i].burst_time;
+        processes[i].completed = false;
+    }
+
+    int current_time = 0, completed_count = 0;
+    float total_waiting_time = 0;
+    int current_process = -1;
+
+    while (completed_count < n) {
+        int highest_priority = -1, selected_process = -1;
+        for (int i = 0; i < n; i++) {
+            if (!processes[i].completed && processes[i].arrival_time <= current_time) {
+                if (highest_priority == -1 || processes[i].priority > highest_priority) {
+                    highest_priority = processes[i].priority;
+                    selected_process = i;
+                }
+            }
+        }
+
+        if (selected_process == -1) {
+            current_time++;
+            continue;
+        }
+
+        if (current_process != selected_process && current_process != -1) {
+            cout << "Time " << current_time << ": Process " << processes[current_process].pid << " preempted\n";
+        }
+
+        current_process = selected_process;
+        Process &p = processes[selected_process];
+        p.remaining_time--;
+        cout << "Time " << current_time << ": Process " << p.pid << " executing (Remaining Time: " << p.remaining_time << ")\n";
+
+        if (p.remaining_time == 0) {
+            p.turnaround_time = current_time + 1 - p.arrival_time;
+            p.waiting_time = p.turnaround_time - p.burst_time;
+            p.completed = true;
+            completed_count++;
+            total_waiting_time += p.waiting_time;
+            cout << "Time " << current_time + 1 << ": Process " << p.pid << " completed\n";
+            current_process = -1;
+        }
+
+        current_time++;
+    }
+
+    cout << "\nProcess ID | Priority | Waiting Time | Turnaround Time\n";
+    for (int i = 0; i < n; i++) {
+        cout << "   " << processes[i].pid << "\t\t"
+             << processes[i].priority << "\t\t"
+             << processes[i].waiting_time << "\t\t"
+             << processes[i].turnaround_time << endl;
+    }
+    cout << "Average Waiting Time: " << total_waiting_time / n << endl;
+
+    return 0;
+}
+```
+
+---
+
+### 6. What Ap Learned (Coding Perspective)
+- **Struct and Arrays**:
+  - `struct Process` ka use karke data organize kiya.
+  - Array ya vector ka use karke multiple processes store kiye.
+- **Sorting**:
+  - `sort` function ka use seekha aur uske alternatives (normal function, functor, manual sorting) explore kiye.
+- **Scheduling Logic**:
+  - Non-preemptive scheduling mein ek process ko select karke complete kiya.
+  - Preemptive scheduling mein remaining time track karke har time unit pe decision liya.
+- **Debugging**:
+  - Print statements daal kar har step ko track kiya.
+- **Logic Building**:
+  - Step-by-step sochna seekha (har time unit pe kya check karna hai, kya update karna hai).
+
+---
+
+### 7. Next Steps (Coding Perspective)
+- **Improve Logic Building**:
+  - Aur practice karo taake logic banane mein confidence badhe.
+  - Dry run karo paper pe pehle, phir code likho.
+- **Explore More Algorithms**:
+  - Multilevel Feedback Queue (MLFQ) jaise advanced algorithms implement karo.
+- **Move to Next Topic**:
+  - Agar apko lagta hai ke CPU Scheduling ka coding part 50% ya zyada samajh aa gaya hai, to hum agle topic (Pipes) pe move kar sakte hain.
+  - Ap mujhe batana ke ab CPU Scheduling kitna samajh aaya (percentage mein).
+
+---
+
+### Final Notes
+- **Coding Overview**:
+  - Humne CPU Scheduling ke liye programs banaye jo FCFS, SJF, Priority Scheduling, SRTF, aur Preemptive Priority Scheduling implement karte hain.
+  - Struct, arrays, sorting, loops, conditions, aur debugging ka use seekha.
+  - Non-preemptive aur preemptive dono tareekon se scheduling kiya.
+- **Apka Progress**:
+  - Apne shuru mein kaha tha ke CPU Scheduling 1% samajh aata hai. Ab humne kaafi coding practice ki hai, aur apko logic banane mein bhi thodi clarity aayi hogi.
+
+Bhai, kaisa laga yeh coding point of view se overview? Ab CPU Scheduling ka coding part kitna samajh aaya (percentage mein)? Kya hum agle topic (Pipes) pe jayen, ya aur practice karein? Ap bol do! 😊
